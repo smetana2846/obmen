@@ -12,7 +12,6 @@ logger = logging.getLogger("cris")
 router = APIRouter()
 
 
-# ── Простая защита API-ключом (пока хватит) ──
 async def verify_api_key(x_api_key: str = Header(default="")):
     if not x_api_key:
         raise HTTPException(status_code=401, detail="Missing API key")
@@ -21,8 +20,6 @@ async def verify_api_key(x_api_key: str = Header(default="")):
         raise HTTPException(status_code=403, detail="Invalid API key")
     return x_api_key
 
-
-# ── Пользователи ──
 
 @router.post("/users", response_model=UserResponse)
 async def create_user(request: UserCreate, db: Session = Depends(database.get_db), _=Depends(verify_api_key)):
@@ -37,8 +34,6 @@ async def create_user(request: UserCreate, db: Session = Depends(database.get_db
     db.refresh(user)
     return user
 
-
-# ── Валюты (публичный) ──
 
 @router.get("/currencies", response_model=list[CurrencyResponse])
 async def get_currencies():
@@ -59,8 +54,6 @@ async def get_currencies():
         raise HTTPException(status_code=502, detail="Failed to fetch currencies from ChangeNOW")
 
 
-# ── Расчёт ──
-
 @router.post("/exchange/calculate", response_model=ExchangeCalculateResponse)
 async def calculate_exchange(request: ExchangeCalculateRequest):
     if not request.from_currency or not request.to_currency:
@@ -77,22 +70,18 @@ async def calculate_exchange(request: ExchangeCalculateRequest):
         logger.error(f"ChangeNOW amount error: {e}")
         raise HTTPException(status_code=502, detail=f"ChangeNOW error: {str(e)}")
 
-    rate = float(result.get("rate", 0))
-    raw_amount = float(result.get("estimatedAmount", result.get("amount", 0)))
-    commission = round(raw_amount * (settings.COMMISSION_PERCENT / 100), 8)
-    final = round(raw_amount - commission, 8)
+    raw_amount = float(result.get("rawAmount", 0) or 0)
+    send = float(result.get("fromAmount", request.amount) or request.amount)
 
     return ExchangeCalculateResponse(
-        amount_send=request.amount,
-        amount_receive=final,
-        raw_amount_receive=raw_amount,
-        rate=rate,
-        commission_percent=settings.COMMISSION_PERCENT,
-        commission_amount=commission
+        amount_send=send,
+        amount_receive=round(float(result.get("toAmount", 0) or 0), 8),
+        raw_amount_receive=round(raw_amount, 8),
+        rate=round(raw_amount / send, 8) if send > 0 else 0,
+        commission_percent=float(result.get("commissionPercent", 1.5) or 1.5),
+        commission_amount=round(float(result.get("commissionAmount", 0) or 0), 8)
     )
 
-
-# ── Создание обмена ──
 
 @router.post("/exchange/create", response_model=ExchangeCreateResponse)
 async def create_exchange(request: ExchangeCreateRequest, db: Session = Depends(database.get_db), _=Depends(verify_api_key)):
@@ -106,21 +95,20 @@ async def create_exchange(request: ExchangeCreateRequest, db: Session = Depends(
         db.commit()
         db.refresh(user)
 
-    # Расчёт с комиссией
     calc = await changenow_service.get_exchange_amount(
         request.from_currency, request.to_currency, request.amount,
         request.from_network, request.to_network
     )
-    raw_amount = float(calc.get("estimatedAmount", calc.get("amount", 0)))
-    commission = round(raw_amount * (settings.COMMISSION_PERCENT / 100), 8)
-    final = round(raw_amount - commission, 8)
+    raw_amount = float(calc.get("rawAmount", 0) or 0)
+    final = round(float(calc.get("toAmount", 0) or 0), 8)
+    commission = round(float(calc.get("commissionAmount", 0) or 0), 8)
 
     try:
         cn_result = await changenow_service.create_exchange(
             from_currency=request.from_currency,
             to_currency=request.to_currency,
             address=request.address,
-            amount=request.amount,
+            from_amount=request.amount,
             from_network=request.from_network,
             to_network=request.to_network
         )
@@ -169,8 +157,6 @@ async def create_exchange(request: ExchangeCreateRequest, db: Session = Depends(
     )
 
 
-# ── Статус ──
-
 @router.get("/exchange/status/{exchange_id}", response_model=ExchangeStatusResponse)
 async def get_exchange_status(exchange_id: str, db: Session = Depends(database.get_db)):
     exchange = db.query(Exchange).filter(Exchange.exchange_id == exchange_id).first()
@@ -190,8 +176,6 @@ async def get_exchange_status(exchange_id: str, db: Session = Depends(database.g
     return _exchange_to_status_response(exchange)
 
 
-# ── История ──
-
 @router.get("/exchanges/history/{firebase_token}", response_model=list[ExchangeStatusResponse])
 async def get_exchange_history(firebase_token: str, db: Session = Depends(database.get_db), _=Depends(verify_api_key)):
     if not firebase_token:
@@ -207,8 +191,6 @@ async def get_exchange_history(firebase_token: str, db: Session = Depends(databa
 
     return [_exchange_to_status_response(e) for e in exchanges]
 
-
-# ── Избранное ──
 
 @router.post("/favorites", response_model=FavoriteResponse)
 async def add_favorite(request: FavoriteAddRequest, db: Session = Depends(database.get_db), _=Depends(verify_api_key)):
@@ -243,8 +225,6 @@ async def get_favorites(firebase_token: str, db: Session = Depends(database.get_
         return []
     return user.favorites
 
-
-# ── Helpers ──
 
 def _exchange_to_status_response(e: Exchange) -> ExchangeStatusResponse:
     return ExchangeStatusResponse(
