@@ -54,26 +54,20 @@ async def get_estimated_amount(
             raise Exception(f"ChangeNOW error: {r.text}")
 
         data = r.json()
-        raw_amount = float(
-            data.get("toAmount",
-                data.get("estimatedAmount",
-                    data.get("amount", 0))) or 0
-        )
+        raw_amount = float(data.get("toAmount", 0) or 0)
         commission_amount = raw_amount * COMMISSION
         final_amount = raw_amount - commission_amount
-        rate = round(raw_amount / from_amount, 8) if from_amount > 0 else 0
 
         return {
-            "amount_send": from_amount,
-            "amount_receive": final_amount,
-            "raw_amount_receive": raw_amount,
-            "rate": rate,
-            "commission_percent": float(settings.COMMISSION_PERCENT),
-            "commission_amount": commission_amount,
-            "from_currency": from_currency.lower(),
-            "to_currency": to_currency.lower(),
-            "from_network": from_network,
-            "to_network": to_network
+            "fromAmount": from_amount,
+            "toAmount": final_amount,
+            "rawAmount": raw_amount,
+            "commissionAmount": commission_amount,
+            "commissionPercent": float(settings.COMMISSION_PERCENT),
+            "fromCurrency": from_currency.lower(),
+            "toCurrency": to_currency.lower(),
+            "fromNetwork": from_network,
+            "toNetwork": to_network
         }
 
 
@@ -128,14 +122,30 @@ class ChangenowService:
     async def get_currencies(self):
         return await get_currencies()
 
-    async def get_estimated_amount(self, from_currency, to_currency, from_amount, from_network=None, to_network=None):
-        return await get_estimated_amount(from_currency, to_currency, from_amount, from_network, to_network)
+    async def get_estimated_amount(
+        self, from_currency, to_currency, from_amount,
+        from_network=None, to_network=None
+    ):
+        return await get_estimated_amount(
+            from_currency, to_currency, from_amount, from_network, to_network
+        )
 
-    async def get_exchange_amount(self, from_currency, to_currency, from_amount, from_network=None, to_network=None):
-        return await get_estimated_amount(from_currency, to_currency, from_amount, from_network, to_network)
+    async def get_exchange_amount(
+        self, from_currency, to_currency, from_amount,
+        from_network=None, to_network=None
+    ):
+        return await get_estimated_amount(
+            from_currency, to_currency, from_amount, from_network, to_network
+        )
 
-    async def create_exchange(self, from_currency, to_currency, from_amount, address, from_network=None, to_network=None):
-        return await create_exchange(from_currency, to_currency, from_amount, address, from_network, to_network)
+    async def create_exchange(
+        self, from_currency, to_currency, from_amount,
+        address, from_network=None, to_network=None
+    ):
+        return await create_exchange(
+            from_currency, to_currency, from_amount,
+            address, from_network, to_network
+        )
 
     async def get_exchange_status(self, exchange_id):
         return await get_exchange_status(exchange_id)
