@@ -20,15 +20,15 @@ async def get_currencies():
 
 async def get_estimated_amount(from_currency: str, to_currency: str, from_amount: float, from_network: str = None, to_network: str = None):
     params = {
-        "fromCurrency": from_currency,
-        "toCurrency": to_currency,
+        "fromCurrency": from_currency.lower(),
+        "toCurrency": to_currency.lower(),
         "fromAmount": from_amount,
         "flow": "standard"
     }
     if from_network:
-        params["fromNetwork"] = from_network
+        params["fromNetwork"] = from_network.lower()
     if to_network:
-        params["toNetwork"] = to_network
+        params["toNetwork"] = to_network.lower()
     async with httpx.AsyncClient(timeout=30) as client:
         r = await client.get(f"{BASE_URL}/exchange/estimated-amount", params=params, headers=HEADERS)
         logger.info(f"ChangeNOW estimated-amount response: {r.status_code} {r.text}")
@@ -48,17 +48,17 @@ async def get_estimated_amount(from_currency: str, to_currency: str, from_amount
 
 async def create_exchange(from_currency: str, to_currency: str, from_amount: float, address: str, from_network: str = None, to_network: str = None):
     payload = {
-        "fromCurrency": from_currency,
-        "toCurrency": to_currency,
+        "fromCurrency": from_currency.lower(),
+        "toCurrency": to_currency.lower(),
         "fromAmount": from_amount,
         "address": address,
         "flow": "standard",
         "type": "direct"
     }
     if from_network:
-        payload["fromNetwork"] = from_network
+        payload["fromNetwork"] = from_network.lower()
     if to_network:
-        payload["toNetwork"] = to_network
+        payload["toNetwork"] = to_network.lower()
     async with httpx.AsyncClient(timeout=30) as client:
         r = await client.post(f"{BASE_URL}/exchange", json=payload, headers=HEADERS)
         logger.info(f"ChangeNOW create exchange response: {r.status_code} {r.text}")
@@ -76,6 +76,9 @@ class ChangenowService:
         return await get_currencies()
 
     async def get_estimated_amount(self, from_currency, to_currency, from_amount, from_network=None, to_network=None):
+        return await get_estimated_amount(from_currency, to_currency, from_amount, from_network, to_network)
+
+    async def get_exchange_amount(self, from_currency, to_currency, from_amount, from_network=None, to_network=None):
         return await get_estimated_amount(from_currency, to_currency, from_amount, from_network, to_network)
 
     async def create_exchange(self, from_currency, to_currency, from_amount, address, from_network=None, to_network=None):
