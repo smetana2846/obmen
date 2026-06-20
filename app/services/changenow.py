@@ -69,3 +69,20 @@ async def get_exchange_status(exchange_id: str):
         r = await client.get(f"{BASE_URL}/exchange/by-id", params={"id": exchange_id}, headers=HEADERS)
         logger.info(f"ChangeNOW status response: {r.status_code} {r.text}")
         return r.json()
+
+
+class ChangenowService:
+    async def get_currencies(self):
+        return await get_currencies()
+
+    async def get_estimated_amount(self, from_currency, to_currency, from_amount, from_network=None, to_network=None):
+        return await get_estimated_amount(from_currency, to_currency, from_amount, from_network, to_network)
+
+    async def create_exchange(self, from_currency, to_currency, from_amount, address, from_network=None, to_network=None):
+        return await create_exchange(from_currency, to_currency, from_amount, address, from_network, to_network)
+
+    async def get_exchange_status(self, exchange_id):
+        return await get_exchange_status(exchange_id)
+
+
+changenow_service = ChangenowService()
