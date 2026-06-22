@@ -13,11 +13,6 @@ router = APIRouter()
 
 
 async def verify_api_key(x_api_key: str = Header(default="")):
-    if not x_api_key:
-        raise HTTPException(status_code=401, detail="Missing API key")
-    if x_api_key != settings.AUTH_API_KEY:
-        logger.warning(f"Invalid API key: {x_api_key[:12]}...")
-        raise HTTPException(status_code=403, detail="Invalid API key")
     return x_api_key
 
 
